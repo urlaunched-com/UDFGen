@@ -24,7 +24,7 @@ extension UDFGen: XcodeCommandPlugin {
 private func generateModule(basePath: String, arguments: [String]) throws {
     let defaultModuleName = "NewModule"
     
-    // Check if --name argument exists and has a valid value, otherwise use default
+    // Extract module name
     let moduleName: String
     if let moduleNameIndex = arguments.firstIndex(of: "--name"), arguments.count > moduleNameIndex + 1 {
         moduleName = arguments[moduleNameIndex + 1]
@@ -32,12 +32,52 @@ private func generateModule(basePath: String, arguments: [String]) throws {
         moduleName = defaultModuleName
     }
     
-    let modulePath = "\(basePath)/\(moduleName)"
+    var modulePath: String
     
-    // Create the module folder structure
-    let fileManager = FileManager.default
-    try fileManager.createDirectory(atPath: modulePath, withIntermediateDirectories: true, attributes: nil)
+    // Check if user wants to find a specific folder
+    if let findFolderIndex = arguments.firstIndex(of: "--find-folder"), arguments.count > findFolderIndex + 1 {
+        let folderToFind = arguments[findFolderIndex + 1]
+        if let foundPath = findFolder(named: folderToFind, in: basePath) {
+            modulePath = "\(foundPath)/\(moduleName)"
+        } else {
+            throw NSError(domain: "PluginError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Error: Folder '\(folderToFind)' not found in project."])
+        }
+    }
+    // Check if user specified a path
+    else if let pathIndex = arguments.firstIndex(of: "--path"), arguments.count > pathIndex + 1 {
+        modulePath = "\(basePath)/\(arguments[pathIndex + 1])/\(moduleName)"
+    }
+    // Default to project root if no path is specified
+    else {
+        modulePath = "\(basePath)/\(moduleName)"
+    }
+    
+    writeUDFTemplate(to: modulePath, moduleName: moduleName)
+}
 
+private func findFolder(named folderName: String, in basePath: String) -> String? {
+    let fileManager = FileManager.default
+    let enumerator = fileManager.enumerator(atPath: basePath)
+    
+    while let element = enumerator?.nextObject() as? String {
+        if element.hasSuffix(folderName) {
+            return "\(basePath)/\(element)"
+        }
+    }
+    
+    return nil
+}
+
+private func writeUDFTemplate(to modulePath: String, moduleName: String ) {
+    let fileManager = FileManager.default
+    
+    do {
+        try fileManager.createDirectory(atPath: modulePath, withIntermediateDirectories: true, attributes: nil)
+    } catch {
+        print("Error: Failed to create module directory at '\(modulePath)'. \(error.localizedDescription)")
+        return
+    }
+    
     let files = [
         "View/\(moduleName)Container.swift": "\(moduleName)Container",
         "View/\(moduleName)Component.swift": "\(moduleName)Component",
@@ -45,13 +85,25 @@ private func generateModule(basePath: String, arguments: [String]) throws {
         "State/\(moduleName)Form.swift": "\(moduleName)Form",
         "\(moduleName)Middleware.swift": "\(moduleName)Middleware"
     ]
-
+    
     for (filePath, content) in files {
         let fullFilePath = "\(modulePath)/\(filePath)"
         let directory = (fullFilePath as NSString).deletingLastPathComponent
-        try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true, attributes: nil)
-        try content.write(toFile: fullFilePath, atomically: true, encoding: .utf8)
+        
+        do {
+            try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            print("Error: Failed to create directory for file '\(fullFilePath)'. \(error.localizedDescription)")
+            continue
+        }
+        
+        do {
+            try content.write(toFile: fullFilePath, atomically: true, encoding: .utf8)
+        } catch {
+            print("Error: Failed to write content to file '\(fullFilePath)'. \(error.localizedDescription)")
+            continue
+        }
     }
-
+    
     print("Module '\(moduleName)' successfully generated at: \(modulePath)")
 }
