@@ -79,11 +79,11 @@ private func writeUDFTemplate(to modulePath: String, moduleName: String ) {
     }
     
     let files = [
-        "View/\(moduleName)Container.swift": "\(moduleName)Container",
-        "View/\(moduleName)Component.swift": "\(moduleName)Component",
-        "State/\(moduleName)Flow.swift": "\(moduleName)Flow",
-        "State/\(moduleName)Form.swift": "\(moduleName)Form",
-        "\(moduleName)Middleware.swift": "\(moduleName)Middleware"
+        "View/\(moduleName)Container.swift": "// \(moduleName)Container",
+        "View/\(moduleName)Component.swift": "// \(moduleName)Component",
+        "State/\(moduleName)Flow.swift": "// \(moduleName)Flow",
+        "State/\(moduleName)Form.swift": "// \(moduleName)Form",
+        "\(moduleName)Middleware.swift": "// \(moduleName)Middleware"
     ]
     
     for (filePath, content) in files {
